@@ -1,0 +1,212 @@
+---
+title: "Smarties Dig Grids: Multiple Plots Layout Tutorial"
+author: "Anna Moroz"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    number_sections: no
+    theme: spacelab
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intro
+
+Hello there! In this little piece I am going to conduct a small demonstration of a function that saved my report I've lost count of how many times. Its usage is simple and dumb as hell, and probably familiar to most of R users, but there is nothing I would trade this function for - as, when the time comes, it is the first that comes to my mind. Each time, no exceptions.
+
+So, the function is *`grid.arrange()`* from `gridExtra` package. There is also a function with the same name in `pdp` package which seems to have the very same capacities, so no worries if you mix them up.
+
+This function allows an R-user to create a relatively pretty layout for several plots in the same piece of output. Usually, if there are several plots in the same chunk, R outputs all of them separately stacking those one above the other. With one line of code with *grid.arrange()* your plots will be presented together in a grid. Simple and pretty.  
+
+## Getting to work
+
+To show the features I love this function for, I am digging into some demonstration of how it works on the sample data. I am using the piece of the World Values Survey data with some transformations which would allow me to create some visuals on happiness (in Finland!) and factors related to it. The exact piece of data is available via the following link <https://github.com/ariarrera/RGem-tutorial/blob/main/wvsFN_example.csv>, for reproduction purposes.
+
+P.S. and the code with which this report was created is available in the same repository (*RGem-tutorial*)
+
+> To get you introduced to this piece of data:
+
+```{r message = FALSE, warning = FALSE, error=FALSE, echo = FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+
+wvs_FN <- read_csv("wvsFN_example.csv")
+wvs_FN <- select(wvs_FN, -X1)
+names(wvs_FN) <- c ("age", "happy", "income",
+                    "satisf", "health",
+                    "choice", 
+                    "household_income_satisf")
+
+wvs_FN$happy0 <-   ifelse(wvs_FN$happy=="Not at all happy",1,
+                            ifelse(wvs_FN$happy=="Not very happy",2,
+                                   ifelse(wvs_FN$happy=="Quite happy",3,
+                                          ifelse(wvs_FN$happy=="Very happy",4, NA))))
+
+wvs_FN$satisf1 <-   ifelse(wvs_FN$satisf=="Satisfied",10,
+                             ifelse(wvs_FN$satisf=="Dissatisfied",1,
+                                    wvs_FN$satisf))
+wvs_FN$satisf1 <- as.numeric(wvs_FN$satisf1)
+
+wvs_FN$happyIND<- rowMeans(wvs_FN[c('happy0','satisf1')], na.rm=T) 
+
+
+wvs_FN$household_isr <-  ifelse(wvs_FN$household_income_satisf=="Satisfied",10,
+                             ifelse(wvs_FN$household_income_satisf=="Dissatisfied",1,
+                                    wvs_FN$household_income_satisf))
+
+wvs_FN$choice_rec <-  ifelse(wvs_FN$choice=="A great deal",10,
+                             ifelse(wvs_FN$choice=="None at all",1,
+                                    wvs_FN$choice))
+
+wvs_FN$income_num <- ifelse (wvs_FN$income=="Eigth step",
+                           8, 
+                            ifelse(wvs_FN$income=="Fifth step",
+                                   5, 
+                                   ifelse(wvs_FN$income=="Fourth step",
+                                          4, 
+                                          ifelse(wvs_FN$income=="Lower step",
+                                                 1,
+                                                 ifelse(wvs_FN$income=="Nineth step",
+                                                        9,
+                                                        ifelse(wvs_FN$income=="second step",
+                                                               2,
+                                                               ifelse(wvs_FN$income=="Seventh step",
+                                                                      7,
+                                                                      ifelse(wvs_FN$income=="Sixth step",
+                                                                             6, 
+                                                                             ifelse(wvs_FN$income=="Tenth step",
+                                                                                    10,
+                                                                                    ifelse(wvs_FN$income=="Third step",
+                                                                                           3, NA))))))))))
+
+str(wvs_FN)
+```
+
+P.S.S do not forget to indicate 'dpi=300' in chunk options before start plotting! We want our graphics in the highest resolution, don't we? :} 
+
+### 'Bars on a window' pile
+
+Annd right off the bat, let's stack some plots in a grid to get to know *grid.arrange()*'s major appealing feature. The data has several numeric variables, such as age, income level, satisfaction with income level, and freedom of choice. Let's assume I am, as a researcher,  interested in how each of these factors is related to the happiness index. And I want the plots to presented side by side in order to compare them to each other.
+
+```{r dpi=300, out.height='100%', out.width='100%', message = FALSE, warning = FALSE, error=FALSE}
+age <- ggplot(wvs_FN, aes(age, happyIND) ) +
+  geom_point() +
+  stat_smooth() + 
+  labs(y="Happiness Level", 
+       x="Age") + theme_bw()
+
+inc <- ggplot(wvs_FN, aes(income_num, happyIND) ) +
+  geom_point() +
+  stat_smooth() + 
+  labs(y="Happiness Level", 
+       x="Income Level") + theme_bw()
+
+free <- ggplot(wvs_FN, aes(choice_rec, happyIND) ) +
+  geom_point() +
+  stat_smooth() +
+  labs(y="Happiness Level", 
+       x="Freedom of Choice") + theme_bw()
+
+sat <- ggplot(wvs_FN, aes(household_isr, happyIND) ) +
+  geom_point() +
+  stat_smooth() + 
+  labs(y="Happiness Level", 
+       x="Satisfaction with Income Level") + theme_bw()
+
+grid.arrange(age, inc, free, sat, ncol = 2)
+```
+
+Looks pretty nice and compact to me. Let's see I got this
+
+- the code which creates this visual output is the following: `grid.arrange(age, inc, free, sat, ncol = 2)`, where first four arguments are standalone plots created by `ggplot()` and saved as objects, and the last argument, *ncol* is a specification of the number of columns which should the visual output contain (on the plot above the are two of them so that we could grasp four plots in two stacked piles, but there can be more columns).
+
+So, the **algorithm** is the following:
+
+1. create plots with `ggplot()` **or (!)** any other graphics creator - basic R and `lattice` package functions would work as well
+
+2. save the plots as objects - by assigning each plot to a variable
+
+3. use `grid.arrange()` to arrange the plots in a grid
+
+4. Nice job! 
+
+
+### A row of mix-sized sectors
+
+Going further, the number of columns is not the only argument which can be specified to adjust the appearance of your visual output. Another commonly used (at least by me) argument is *widths*, which helps you to adjust the proportions of plots. This works for situations when there is a need to make some plots either wider or more narrow than others. 
+
+For example, I have two variables representing the distribution of answers about subjective happiness. One is numeric and another is categorical. And, all of the sudden, I want to look at them together, to compare the distributions. The numeric variable when plotted takes more space on the horizontal axis, so, intuitively, it should be given more amount of space when two plots are put inside a grid.  
+
+```{r dpi=300,  fig.height=5.6, fig.width=8.48, out.height='100%', out.width='100%', message = FALSE, warning = FALSE, error=FALSE}
+happy_hist <- ggplot(wvs_FN, aes(x = happyIND)) +
+  ggtitle("Distribution of Happiness\nIndex") + labs(subtitle = "Histogram") +
+  xlab("Happiness Index") + 
+  ylab("") +
+  geom_histogram(binwidth = 0.5, fill = "sienna1", col= "black", alpha = 0.7) +
+  geom_vline(aes(xintercept = mean(happyIND)), linetype="solid", color="#8B0000", size=1) +
+  geom_vline(aes(xintercept = median(happyIND)), linetype="dashed", color="white", size=1) +
+  theme_bw()
+
+happy_bar <- ggplot(data = wvs_FN, aes(x = happy, y = prop.table(stat(count)))) + 
+  geom_bar(aes(y = prop.table(..count..)), position = "dodge", alpha = 0.6, color = "black", fill = "blue2") +
+  scale_y_continuous(labels = scales::percent) +  
+  labs(subtitle="Barplot", 
+       y="", 
+       x="", 
+       title="Subjective Happiness in\nFinalnd") +
+  coord_flip() +
+  theme_bw()
+
+grid.arrange(happy_bar, happy_hist, 
+             nrow=2,
+             widths = c(1,2))
+```
+
+Here is how it looks like. As a result of such adjustment of plots' proportions you might also need to adjust labels on those plots later. The mechanics of coding is almost the same to the algorithm outlined above. Yet, this time I added `widths = c(1,2)` indicating that the first plot, stated by the first argument, should take twice less space than the second one.
+
+### Silly dash
+
+Finally, there is one more curious ability of the function I want to shed light on. Imagine the situation when you, for some reason, need to have all your plots created before (or even more of them) together in one space at the same - so that it would form a dummy dashboard or whatsoever. *grid.arrange()* can do that!
+
+The required argument for this action is *layout_matrix*. Below, you can see what it looks like.
+
+```{r dpi=300, fig.height=5.6, fig.width=8.48, out.height='100%', out.width='100%', message = FALSE, warning = FALSE, error=FALSE}
+boxes <- ggplot(data = wvs_FN) + 
+  geom_boxplot(aes(x = health, y = happyIND), col= "red") + 
+  labs(subtitle="Boxplots", 
+       y="Hapiness Index", 
+       x="Perception of Health", 
+       title="Distribution of Happiness\nIndex Values by Feeling\nHealthy") +
+  theme_bw()
+
+worms <- ggplot(wvs_FN, aes(household_isr, happyIND) ) +
+  geom_point(color = "tomato", size = 3, alpha = 0.3) +
+  stat_smooth(color = "black") + 
+  labs(title = "Happiness Level VS\nSatisfaction with Income Level",
+       subtitle = "Scatterplot",
+       y="Happiness Level", 
+       x="Satisfaction with Income Level") + theme_bw()
+
+grid.arrange(
+  grobs = list(happy_bar, happy_hist, worms, boxes, age, inc, free, sat),
+  layout_matrix = rbind(c(1, 2, 3),
+                        c(4, 5, 6), 
+                        c(4, 7, 8))
+)
+```
+
+The position of plots can be adjusted by specifying the value of *layout_matrix* correctly. It takes a dataframe in where the positioning of plots, as if they were inside cells of a table instead of a grid, is given. For that purpose, `rbind()` function can be used as I do it in my code, giving an option of `layout_matrix = rbind(c(1, 2, 3), c(4, 5, 6), c(4, 7, 8))` to *grid.arrange()*
+
+
+Oookay, so that's it. *grid.arrange()* has other utilities which might come really useful, but, in this part, I tried to cover what I use myself most often.
+
+Hope you enjoyed ~
